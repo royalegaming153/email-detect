@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>REXO AI | Ultra-Core V4.1</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;700;900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root { --primary: #00ffaa; --bg: #020617; }
+        body { 
+            font-family: 'Outfit', sans-serif; background: var(--bg); color: #f1f5f9;
+            background-image: radial-gradient(circle at 50% -20%, #1e293b 0%, transparent 80%);
+        }
+        .mono { font-family: 'JetBrains Mono', monospace; }
+        .glass { background: rgba(15, 23, 42, 0.8); backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.05); }
+        .category-tab.active { background: rgba(0, 255, 170, 0.1); border-right: 3px solid var(--primary); color: var(--primary) !important; }
+        
+        /* Smooth Transitions */
+        .animate-in { animation: slideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* Save Button Pulse Animation */
+        .btn-save-anim { transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); position: relative; overflow: hidden; }
+        .btn-save-anim:active { transform: scale(0.9); }
+        
+        /* Modal Enhanced */
+        #action-modal { transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
+        .modal-show { opacity: 1 !important; pointer-events: auto !important; transform: scale(1) !important; }
+
+        .priority-glow { box-shadow: 0 0 40px rgba(0, 255, 170, 0.08); border-color: rgba(0, 255, 170, 0.2) !important; }
+        
+        /* Notification Toast */
+        #toast { transition: all 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55); bottom: -100px; }
+        .toast-show { bottom: 30px !important; }
+    </style>
+</head>
+<body class="h-screen overflow-hidden flex flex-col">
+
+    <div id="toast" class="fixed left-1/2 -translate-x-1/2 z-[200] glass px-8 py-4 rounded-2xl border border-emerald-500/30 flex items-center gap-3">
+        <div class="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></div>
+        <span id="toast-msg" class="text-xs font-black uppercase tracking-widest text-emerald-400">Item Saved to Pipeline</span>
+    </div>
+
+    <div id="action-modal" class="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/90 backdrop-blur-xl opacity-0 pointer-events-none transform scale-110">
+        <div class="glass w-full max-w-2xl rounded-[3rem] overflow-hidden border border-white/10 shadow-2xl">
+            <div class="h-2 w-full bg-gradient-to-r from-emerald-500 via-blue-500 to-purple-600"></div>
+            <div class="p-10">
+                <div class="flex justify-between items-start mb-8">
+                    <div>
+                        <span id="m-type" class="text-[10px] font-black px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 uppercase tracking-widest"></span>
+                        <h2 id="m-title" class="text-3xl font-black text-white mt-3 leading-tight tracking-tighter"></h2>
+                    </div>
+                    <button onclick="closeModal()" class="w-10 h-10 flex items-center justify-center rounded-full bg-white/5 text-slate-400 hover:text-white transition-all">&times;</button>
+                </div>
+                
+                <div class="grid grid-cols-2 gap-8 mb-10">
+                    <div class="space-y-6">
+                        <div class="bg-white/5 p-5 rounded-3xl border border-white/5">
+                            <h4 class="text-[10px] font-bold text-slate-500 uppercase mb-3">Verification Score</h4>
+                            <div class="flex items-end gap-3 mb-2">
+                                <span id="m-score-val" class="text-4xl font-black text-emerald-400">0%</span>
+                                <span class="text-[10px] text-slate-500 mb-1 uppercase font-bold">Matched</span>
+                            </div>
+                            <div class="h-1.5 w-full bg-white/10 rounded-full overflow-hidden">
+                                <div id="m-score-fill" class="h-full bg-emerald-500 transition-all duration-1000"></div>
+                            </div>
+                        </div>
+                        <div id="m-link-container"></div>
+                    </div>
+                    <div class="bg-white/5 p-5 rounded-3xl border border-white/5 overflow-y-auto max-h-[160px]">
+                        <h4 class="text-[10px] font-bold text-slate-500 uppercase mb-4">Detected Skills</h4>
+                        <div id="m-tags" class="flex flex-wrap gap-2"></div>
+                    </div>
+                </div>
+
+                <div class="flex gap-4">
+                    <button id="m-primary-btn" class="flex-[2] bg-emerald-500 hover:bg-emerald-400 text-black font-black py-5 rounded-2xl transition-all shadow-xl shadow-emerald-500/20 uppercase text-[10px] tracking-widest transform hover:-translate-y-1">Launch Application</button>
+                    <button id="m-save-btn" class="flex-1 btn-save-anim px-8 py-5 bg-white/5 hover:bg-white/10 text-white rounded-2xl font-black text-[10px] uppercase transition-all border border-white/10">Save for Later</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <nav class="h-20 border-b border-white/5 flex items-center justify-between px-10 glass z-50">
+        <div class="flex items-center gap-4">
+            <div class="w-10 h-10 bg-emerald-500 rounded-xl flex items-center justify-center font-black text-black text-xl shadow-lg shadow-emerald-500/30">R</div>
+            <span class="font-black text-2xl tracking-tighter">REXO <span class="text-emerald-400 font-light">CORE V4.1</span></span>
+        </div>
+        <div id="stats" class="flex gap-4">
+            <div class="px-5 py-2 bg-emerald-500/5 rounded-2xl border border-emerald-500/10 text-[10px] font-black text-emerald-400 uppercase tracking-widest"><span id="count-opp">0</span> Opportunities</div>
+            <div class="px-5 py-2 bg-white/5 rounded-2xl border border-white/10 text-[10px] font-black text-slate-400 uppercase tracking-widest"><span id="count-saved">0</span> Saved Items</div>
+        </div>
+    </nav>
+
+    <div class="flex-1 flex overflow-hidden">
+        <aside class="w-80 border-r border-white/5 bg-slate-950/40 flex flex-col p-8 space-y-10">
+            <div class="space-y-2">
+                <h3 class="text-[10px] font-black text-slate-600 uppercase tracking-[0.2em] mb-4">Navigation</h3>
+                <button onclick="filter('all')" class="category-tab active w-full flex items-center p-4 rounded-2xl text-xs font-bold transition-all">🏠 Global Stream</button>
+                <button onclick="filter('opportunity')" class="category-tab w-full flex items-center p-4 rounded-2xl text-xs font-bold text-slate-500">💎 High Value</button>
+                <button onclick="filter('saved')" class="category-tab w-full flex items-center p-4 rounded-2xl text-xs font-bold text-slate-500">⭐ Saved Vault</button>
+            </div>
+
+            <div class="flex-1">
+                <h3 class="text-[10px] font-black text-slate-600 uppercase tracking-[0.2em] mb-4">User Identity</h3>
+                <div class="space-y-4">
+                    <input type="text" id="p-major" placeholder="Academic Field" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-xs text-emerald-400 outline-none focus:border-emerald-500/50 transition-all">
+                    <textarea id="p-skills" rows="4" placeholder="Skills (Comma Separated)" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-xs text-slate-300 outline-none resize-none focus:border-emerald-500/50 transition-all"></textarea>
+                </div>
+            </div>
+        </aside>
+
+        <main class="flex-1 flex flex-col overflow-y-auto">
+            <div class="p-10">
+                <div class="max-w-4xl mx-auto mb-10">
+                    <div class="glass rounded-[2.5rem] border border-white/10 p-3 shadow-2xl relative">
+                        <textarea id="input-feed" rows="5" class="w-full bg-transparent p-6 text-sm mono text-emerald-100/60 outline-none resize-none" placeholder="Drop raw datastream here..."></textarea>
+                        <div class="bg-white/5 p-4 flex items-center justify-between rounded-[1.8rem]">
+                            <span class="text-[9px] mono text-slate-500 ml-4">NEURAL ENGINE READY</span>
+                            <button onclick="launchNeuralScan()" class="bg-emerald-500 hover:bg-emerald-400 text-black px-12 py-4 rounded-2xl font-black text-xs transition-all shadow-xl shadow-emerald-500/20 uppercase tracking-widest transform active:scale-95">Analyze Streams</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="results-grid" class="max-w-4xl mx-auto space-y-4">
+                    </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        let datastream = [];
+        let savedItems = JSON.parse(localStorage.getItem('rexoSaved')) || [];
+        let currentFilter = 'all';
+
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            document.getElementById('toast-msg').innerText = msg;
+            toast.classList.add('toast-show');
+            setTimeout(() => toast.classList.remove('toast-show'), 3000);
+        }
+
+        function launchNeuralScan() {
+            const raw = document.getElementById('input-feed').value;
+            const major = document.getElementById('p-major').value.toLowerCase().trim();
+            const skills = document.getElementById('p-skills').value.toLowerCase().split(',').map(s => s.trim()).filter(s => s);
+
+            const emailBlocks = raw.split(/(?=Subject:)|(?=From:)|(?=\n\d{1,2}\.)/gi).filter(b => b.trim().length > 30);
+            datastream = [];
+
+            emailBlocks.forEach((block, idx) => {
+                const text = block.trim();
+                const subject = text.match(/Subject:\s*(.*)/i)?.[1] || "Unrecognized Packet " + (idx + 1);
+                const linkMatch = text.match(/(https?:\/\/[^\s]+)/g);
+                const firstLink = linkMatch ? linkMatch[0].replace(/[.,]$/, '') : null;
+
+                const isOpp = /internship|job|hiring|scholarship|fellowship|hackathon|contest|career/i.test(text);
+                let type = isOpp ? 'opportunity' : 'neutral';
+
+                let score = 0;
+                let tags = [];
+                if (type === 'opportunity') {
+                    score = 25; 
+                    skills.forEach(s => { if (text.toLowerCase().includes(s)) { score += 20; tags.push(s.toUpperCase()); } });
+                    if (major && text.toLowerCase().includes(major)) { score += 25; tags.push("FIELD MATCH"); }
+                }
+
+                datastream.push({
+                    id: Date.now() + idx, // Unique ID
+                    type,
+                    subject: subject.substring(0, 80),
+                    preview: text.substring(0, 150) + "...",
+                    score: Math.min(score, 100),
+                    tags,
+                    link: firstLink,
+                    date: "Apr 2026"
+                });
+            });
+            updateDisplay();
+        }
+
+        function toggleSave(id) {
+            const item = datastream.find(d => d.id === id) || savedItems.find(d => d.id === id);
+            const index = savedItems.findIndex(s => s.id === id);
+
+            if (index === -1) {
+                savedItems.push(item);
+                showToast("Data secured in vault");
+            } else {
+                savedItems.splice(index, 1);
+                showToast("Item removed from vault");
+            }
+            localStorage.setItem('rexoSaved', JSON.stringify(savedItems));
+            updateDisplay();
+            closeModal();
+        }
+
+        function openAction(id) {
+            const item = datastream.find(d => d.id === id) || savedItems.find(d => d.id === id);
+            const modal = document.getElementById('action-modal');
+            
+            document.getElementById('m-title').innerText = item.subject;
+            document.getElementById('m-type').innerText = item.type;
+            document.getElementById('m-score-val').innerText = item.score + '%';
+            document.getElementById('m-score-fill').style.width = item.score + '%';
+            
+            const tagContainer = document.getElementById('m-tags');
+            tagContainer.innerHTML = item.tags.map(t => `<span class="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[9px] px-3 py-1 rounded-full font-black uppercase">${t}</span>`).join('') || '<span class="text-slate-500 text-[10px]">No matches</span>';
+
+            const saveBtn = document.getElementById('m-save-btn');
+            const isSaved = savedItems.some(s => s.id === item.id);
+            saveBtn.innerText = isSaved ? "Remove from Vault" : "Save for Later";
+            saveBtn.className = isSaved ? "flex-1 btn-save-anim px-8 py-5 bg-red-500/10 text-red-400 rounded-2xl font-black text-[10px] uppercase border border-red-500/20" : "flex-1 btn-save-anim px-8 py-5 bg-white/5 text-white rounded-2xl font-black text-[10px] uppercase border border-white/10";
+            saveBtn.onclick = () => toggleSave(item.id);
+
+            const linkBox = document.getElementById('m-link-container');
+            const primaryBtn = document.getElementById('m-primary-btn');
+            
+            if (item.link) {
+                linkBox.innerHTML = `<div class="bg-blue-500/10 border border-blue-500/20 p-4 rounded-2xl"><h4 class="text-[8px] font-black text-blue-400 uppercase mb-1">Source Link</h4><p class="text-[10px] text-slate-400 truncate">${item.link}</p></div>`;
+                primaryBtn.onclick = () => window.open(item.link, '_blank');
+                primaryBtn.style.display = "block";
+            } else {
+                linkBox.innerHTML = `<div class="bg-white/5 p-4 rounded-2xl"><p class="text-[8px] text-slate-500 uppercase font-black">No Direct Portal</p></div>`;
+                primaryBtn.style.display = "none";
+            }
+
+            modal.classList.add('modal-show');
+        }
+
+        function closeModal() { document.getElementById('action-modal').classList.remove('modal-show'); }
+
+        function filter(category) {
+            currentFilter = category;
+            document.querySelectorAll('.category-tab').forEach(t => t.classList.remove('active'));
+            event.target.classList.add('active');
+            renderGrid();
+        }
+
+        function updateDisplay() {
+            document.getElementById('count-opp').innerText = datastream.filter(d => d.type === 'opportunity').length;
+            document.getElementById('count-saved').innerText = savedItems.length;
+            renderGrid();
+        }
+
+        function renderGrid() {
+            const container = document.getElementById('results-grid');
+            container.innerHTML = '';
+            
+            let list = (currentFilter === 'saved') ? savedItems : datastream;
+            let filtered = list.filter(d => currentFilter === 'all' || currentFilter === 'saved' || d.type === currentFilter);
+
+            filtered.forEach(item => {
+                const color = item.type === 'opportunity' ? 'emerald' : 'blue';
+                const isSaved = savedItems.some(s => s.id === item.id);
+
+                container.innerHTML += `
+                    <div class="animate-in glass p-8 rounded-[2.5rem] border-l-[12px] border-${color}-500 flex justify-between items-center gap-8 ${item.score > 60 ? 'priority-glow' : ''} hover:bg-white/[0.04] transition-all group">
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-center gap-3 mb-2">
+                                <span class="text-${color}-400 text-[10px] font-black uppercase tracking-widest">${item.type}</span>
+                                ${isSaved ? '<span class="text-emerald-400 text-[10px]">★ SAVED</span>' : ''}
+                            </div>
+                            <h4 class="text-white font-bold text-xl mb-1 truncate group-hover:text-emerald-400 transition-colors">${item.subject}</h4>
+                            <p class="text-slate-500 text-xs truncate font-medium">${item.preview}</p>
+                        </div>
+                        <div class="flex items-center gap-6">
+                            <div class="text-right">
+                                <div class="text-2xl font-black text-white">${item.score}%</div>
+                                <div class="text-[8px] text-slate-500 font-black uppercase">Fit</div>
+                            </div>
+                            <button onclick="openAction(${item.id})" class="bg-white/5 hover:bg-emerald-500 hover:text-black text-white px-8 py-4 rounded-2xl text-[10px] font-black transition-all border border-white/5 uppercase">Inspect</button>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        // Initialize display
+        updateDisplay();
+    </script>
+</body>
+</html>
